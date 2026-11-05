@@ -131,7 +131,7 @@ EXP2_N_REPLICATIONS_PAPER = 500  # full number of Monte Carlo replications per c
 EXP2_N_REPLICATIONS_RUN = 60
 
 # ---------------------------------------------------------------------------
-# Data sources (Section 4.1 and Section 8 "Data" of the task description)
+# Data sources (Section 4.1 and Section 8 "Data")
 # ---------------------------------------------------------------------------
 
 FRENCH_3FACTOR_URL = (
