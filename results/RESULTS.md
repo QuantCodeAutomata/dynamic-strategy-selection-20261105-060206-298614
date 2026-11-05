@@ -64,9 +64,17 @@ cadence, both at Trend+Cycle/120 bps/eta=3 on the same 613-decision sample).
 This identifies the re-estimation frequency as the cause of the ranking
 reversal seen in an earlier 6-month-refit run of the full 18-combination
 grid; the executed grid below therefore uses the paper's monthly cadence
-throughout. The residual 18.9% RL Sharpe gap and the reversed switching-
-frequency ranking at monthly cadence were not further localized within the
-time available for this replication (see "Deviations from the paper").
+throughout. A second hypothesis -- that the Dataloader-substitute DEF factor
+(see "Deviations from the paper") drives the reversal -- was rejected: the
+same headline combination computed over the three actions MOM/HML/RMW only
+(DEF excluded) still shows RL below Greedy (Sharpe 0.486 vs 0.528). A review
+of the decision loop, the Q-function basis and continuation-value indexing,
+the reward and switching-cost sign, the ridge-GCV estimator and the
+performance-metric formulas against Algorithm S.1 and equation (A.2) found no
+implementation discrepancy. The residual 18.9% RL Sharpe gap and the
+reversed switching-frequency ranking at monthly cadence were not further
+localized within the time available for this replication (see "Deviations
+from the paper").
 
 ### Full grid at the paper's monthly re-estimation cadence (time-limited subset)
 
