@@ -26,70 +26,80 @@ first trailing-volatility estimate.
 
 ### Headline comparison: Trend+Cycle state set, switching cost = 120 bps, eta = 3
 
-| Policy    | Mean reward (%) | Annualised Sharpe | Switching frequency |
-|-----------|------------------|-------------------|----------------------|
-| RL (executed, 6-month refit)  | 0.2527 | 0.442 | 5.23% |
-| RL (monthly refit, slice check) | 0.3759 | 0.580 | 5.07% |
-| Greedy (executed, 6-month refit) | 0.2967 | 0.478 | 4.58% |
-| Greedy (monthly refit, slice check) | 0.2019 | 0.383 | 4.25% |
-| Fixed MOM | 0.2539 | 0.431 | 0% |
-| Fixed HML | 0.1014 | 0.275 | 0% |
-| Fixed RMW | 0.2289 | 0.465 | 0% |
-| Fixed DEF | -0.8262 | -0.393 | 0% |
+| Policy  | Mean reward (%) | Annualised Sharpe | Switching frequency |
+|---------|------------------|-------------------|----------------------|
+| RL      | 0.3759 | 0.580 | 5.07% |
+| Greedy  | 0.2019 | 0.383 | 4.25% |
+| Fixed MOM | 0.5359 | 0.431 | 0% |
+| Fixed HML | 0.2435 | 0.275 | 0% |
+| Fixed RMW | 0.3106 | 0.465 | 0% |
+| Fixed DEF | -0.5146 | -0.393 | 0% |
+
+(`results/exp1_performance_table.csv`; RL vs Greedy mean-reward t-statistic
+1.674, p = 0.095.)
 
 Paper (Section 4, eta = 3, Trend+Cycle, 120 bps): RL Sharpe approx 0.715,
 Greedy approx 0.511, best fixed (MOM) approx 0.445; switching frequency 7.15%
 (RL) vs 7.95% (Greedy).
 
-**Verdicts (headline, executed 6-month-refit configuration):**
+**Verdicts (headline configuration, paper's monthly re-estimation cadence):**
 - Fixed MOM Sharpe (0.431 vs paper's 0.445, 3.1% difference): **reproduced**.
-- Greedy Sharpe (0.478 vs paper's 0.511, 6.5% difference): **reproduced**.
-- RL Sharpe (0.442 vs paper's 0.715, 38.2% difference) and the qualitative
-  ranking "RL outperforms Greedy": **not reproduced** at the executed
-  re-estimation frequency — see the localization finding below, which
-  identifies the cause and shows the ranking recovers at the paper's
-  frequency.
-- Switching frequencies (RL 5.23% vs 7.15%, Greedy 4.58% vs 7.95%, and the
-  paper's ranking "RL switches less than Greedy" reversed in the executed
-  run): **not reproduced** at the executed frequency; **partially
-  reproduced** at the monthly-refit slice (ranking direction still reversed:
-  RL 5.07% vs Greedy 4.25%, but both frequencies closer to each other and to
-  the executed-run range).
+- The qualitative ranking "RL outperforms both Greedy and the best fixed
+  strategy" (0.580 > 0.383 and 0.580 > 0.431): **reproduced**.
+- RL Sharpe (0.580 vs paper's 0.715, 18.9% difference): **partially
+  reproduced**.
+- Greedy Sharpe (0.383 vs paper's 0.511, 25.0% difference): **partially
+  reproduced**.
+- Switching frequencies (RL 5.07% vs paper's 7.15%, Greedy 4.25% vs paper's
+  7.95%; both lower than the paper by a similar amount, and the paper's
+  ranking "RL switches less often than Greedy" is reversed here, 5.07% >
+  4.25%): **not reproduced** — see the localization finding below.
 
-### Localization finding: re-estimation frequency drives the RL-vs-Greedy ranking
+### Localization finding: re-estimation frequency and residual gaps
 
-The full grid (18 state/cost/eta combinations) was executed with the fitted
-Q-function re-estimated every 6 months instead of every month
-(`EXP1_REFIT_EVERY_MONTHS_RUN = 6`, see "Deviations from the paper"), because
-one monthly re-estimation of Algorithm S.1 (31-point generalised
-cross-validation grid, N_A = 10 averaged simulated action sequences) over 613
-decisions is too slow to repeat for every one of the 18 combinations within
-the time available. At this reduced frequency the RL policy under-performs
-Greedy at the headline configuration, contradicting the paper's central
-claim. To check whether the reduced frequency is the cause, the headline
-configuration (Trend+Cycle, 120 bps, eta = 3) was re-run once, outside the
-full grid, at the paper's monthly re-estimation frequency
-(`EXP1_REFIT_EVERY_MONTHS_PAPER = 1`). At monthly refit the ranking recovers
-the paper's qualitative result: RL Sharpe 0.580 > Greedy Sharpe 0.383 (both
-also above Fixed MOM's 0.431), matching the paper's statement that the RL
-policy outperforms both Greedy and the best fixed strategy. The RL Sharpe
-(0.580 vs the paper's 0.715) is 18.9% lower — **partially reproduced** — and
-the qualitative ranking RL > Greedy > Fixed MOM is **reproduced**. This
-isolates the 6-month re-estimation frequency as the identified cause of the
-ranking reversal seen in the full-grid run; the residual 18.9% Sharpe gap
-after fixing the frequency was not further localized within the time
-available (see "Deviations from the paper").
+Re-estimating the fitted Q-function every 6 months instead of every month
+reverses the RL-vs-Greedy ranking (RL Sharpe 0.442 < Greedy Sharpe 0.478 at
+6-month refit, against RL 0.580 > Greedy 0.383 at the paper's monthly
+cadence, both at Trend+Cycle/120 bps/eta=3 on the same 613-decision sample).
+This identifies the re-estimation frequency as the cause of the ranking
+reversal seen in an earlier 6-month-refit run of the full 18-combination
+grid; the executed grid below therefore uses the paper's monthly cadence
+throughout. The residual 18.9% RL Sharpe gap and the reversed switching-
+frequency ranking at monthly cadence were not further localized within the
+time available for this replication (see "Deviations from the paper").
+
+### Full grid at the paper's monthly re-estimation cadence (time-limited subset)
+
+`results/exp1_performance_table.csv` (RL and Greedy only; Fixed rows are
+state-independent and shown once above):
+
+| Spec | Cost | eta | RL Sharpe | Greedy Sharpe | RL switch | Greedy switch |
+|---|---|---|---|---|---|---|
+| Trend | 120 | 3 | 0.566 | 0.616 | 4.58% | 2.45% |
+| Trend+Cycle | 120 | 0 | 0.503 | 0.535 | 7.52% | 3.43% |
+| Trend+Cycle | 120 | 3 | 0.580 | 0.383 | 5.07% | 4.25% |
+| Trend+Cycle+Macro | 120 | 3 | 0.332 | 0.301 | 9.15% | 7.35% |
+
+Only the headline configuration (Trend+Cycle, 120 bps, eta = 3) shows RL
+outperforming Greedy; at eta = 0 and at the Trend-only specification Greedy
+is higher. The paper reports the RL-over-Greedy ranking only for its
+headline configuration, so this is not a contradiction of a specific paper
+number, but the three non-headline comparisons were not checked against the
+paper's full grid of 18 combinations (see "Deviations from the paper" for
+the executed subset and the command to run the complete grid).
 
 ### State-information trade-off
 
-Comparing the three state sets at eta = 3, 120 bps (executed 6-month-refit
-run, `results/exp1_performance_table.csv`): RL Sharpe is 0.489 (Trend), 0.442
-(Trend+Cycle), 0.293 (Trend+Cycle+Macro). Adding macroeconomic variables
-lowers out-of-sample RL performance relative to Trend and Trend+Cycle,
-consistent with the paper's information-estimation trade-off claim that
-richer state specifications do not improve out-of-sample performance:
-**reproduced** (qualitative direction; the paper gives no exact Trend-only or
-Trend+Cycle+Macro Sharpe values to compare in magnitude).
+Comparing the three state sets at eta = 3, 120 bps (`results/exp1_performance_table.csv`):
+RL Sharpe is 0.566 (Trend), 0.580 (Trend+Cycle), 0.332
+(Trend+Cycle+Macro). Adding macroeconomic variables lowers out-of-sample RL
+performance relative to Trend and Trend+Cycle, consistent with the paper's
+information-estimation trade-off claim that richer state specifications do
+not improve out-of-sample performance: **reproduced** (qualitative
+direction; the paper gives no exact Trend-only or Trend+Cycle+Macro Sharpe
+values to compare in magnitude). The Trend+Cycle+Macro Sharpe is lower than
+both Trend and Trend+Cycle for both RL and Greedy, reinforcing the same
+conclusion for Greedy as well.
 
 ### Rotation by market cycle (headline RL policy, Trend+Cycle, 120 bps, eta = 3)
 
@@ -98,20 +108,22 @@ held):
 
 | Market state | MOM | HML | RMW | DEF |
 |---|---|---|---|---|
-| Bull | 63.9% | 16.2% | 19.9% | 0.0% |
-| Correction | 66.9% | 12.3% | 20.8% | 0.0% |
-| Bear | 35.8% | 24.7% | 39.5% | 0.0% |
-| Rebound | 26.3% | 22.8% | 50.9% | 0.0% |
+| Bull | 66.0% | 8.1% | 25.2% | 0.6% |
+| Correction | 66.2% | 6.5% | 24.7% | 2.6% |
+| Bear | 32.1% | 22.2% | 44.4% | 1.2% |
+| Rebound | 22.8% | 28.1% | 49.1% | 0.0% |
 
-Momentum dominates in Bull and Correction months and falls substantially in
-Bear and Rebound months, as the paper describes: **reproduced**. RMW becomes
-the dominant holding in Rebound months, matching the paper's statement that
-RMW is favoured during rebounds: **reproduced**. DEF is never selected in any
-state (paper: DEF should be the second most selected factor in Bear months):
-**not reproduced** — DEF's fixed-strategy Sharpe ratio in this replication is
--0.393 instead of the paper's approx 0.010 (see "Deviations from the paper"
-for the identified cause), so the policy never selects it in-sample or
-out-of-sample.
+Momentum dominates in Bull and Correction months and falls to roughly a
+third to a half in Bear and Rebound months, as the paper describes:
+**reproduced**. RMW becomes the dominant holding in Rebound months and the
+second most selected factor in Bear months, matching the paper's statement
+that RMW is favoured during rebounds: **reproduced**. DEF is selected in a
+small share of Bull, Correction and Bear months (0.6%-2.6%) but is not the
+second most selected factor in Bear months as the paper states (HML and RMW
+are both selected far more often there): **not reproduced** — DEF's
+fixed-strategy Sharpe ratio in this replication is -0.393 instead of the
+paper's approx 0.010 (see "Deviations from the paper" for the identified
+cause), so the policy rarely selects it in- or out-of-sample.
 
 ### Cumulative performance
 
@@ -241,18 +253,28 @@ reward against training sample size for RL, Greedy, Oracle and Fixed Strategy
   DEF factor's weak realised performance was not traced to these specific
   exclusions. Run `python -m exp.exp1_empirical --full` to use the
   full CRSP-style universe size once a larger instrument list is supplied.
-- **Re-estimation frequency.** The paper re-estimates the fitted Q-function
-  every out-of-sample month (629 decisions). Re-estimating Algorithm S.1 at
-  every month, for every one of the 18 state/cost/eta combinations, was
-  estimated (from one measured monthly-refit timing, approximately 700
-  seconds for one policy pair) to take several hours in total, which would
-  not finish before the time available for this replication. The full grid
-  was executed with the Q-function re-estimated every 6 months
-  (`EXP1_REFIT_EVERY_MONTHS_RUN = 6`); monthly decisions and rewards are
-  still produced every month using the most recently estimated policy. This
-  is the identified cause of the RL-vs-Greedy ranking reversal described
-  above; run `python -m exp.exp1_empirical --full` for the paper's
-  monthly re-estimation frequency (`EXP1_REFIT_EVERY_MONTHS_PAPER = 1`).
+- **Re-estimation frequency and grid size.** The paper re-estimates the
+  fitted Q-function every out-of-sample month (629 decisions) for all 18
+  state/cost/eta combinations (3 state specifications x 3 switching costs x
+  2 eta values). Re-estimating Algorithm S.1 at every month takes
+  approximately 1,500-1,750 seconds per (state, cost, eta, policy-pair)
+  combination in this environment (`exp1_run_log.json`-adjacent run logs),
+  so the full 18-combination grid at monthly cadence was estimated to take
+  several hours, more than the time available for this replication. An
+  earlier run executed the full 18-combination grid at a 6-month
+  re-estimation cadence (`EXP1_REFIT_EVERY_MONTHS_RUN = 6`); this reversed
+  the paper's RL-vs-Greedy ranking at the headline configuration (RL Sharpe
+  0.442 < Greedy Sharpe 0.478), which was traced to the reduced
+  re-estimation frequency by re-running the headline configuration alone at
+  monthly cadence (ranking recovered: RL 0.580 > Greedy 0.383). The grid
+  executed for the numbers reported above therefore uses the paper's
+  monthly cadence (`EXP1_REFIT_EVERY_MONTHS_PAPER = EXP1_REFIT_EVERY_MONTHS_RUN
+  = 1`) on a time-limited subset of 4 of the 18 combinations
+  (`EXP1_RUN_COMBOS` in `src/config.py`: the headline Trend+Cycle/120 bps
+  configuration at both eta = 0 and eta = 3, the Trend-only and the
+  Trend+Cycle+Macro specifications at eta = 3 and 120 bps), run as
+  independent parallel processes. Run `python -m exp.exp1_empirical --full`
+  for the complete 18-combination grid at the paper's monthly cadence.
 - **Realised out-of-sample window.** The executed run produces 613
   out-of-sample monthly decisions from 1974-11-30, against the paper's 629
   decisions from 1973-07-01. The difference is due to the DEF proxy

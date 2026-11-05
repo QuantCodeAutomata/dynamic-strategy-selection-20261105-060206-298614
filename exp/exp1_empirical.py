@@ -79,11 +79,12 @@ def to_timestamp_index(period_index: pd.PeriodIndex) -> pd.DatetimeIndex:
 
 
 def run_grid(factor_returns: pd.DataFrame, fred: pd.DataFrame, refit_every_months: int,
-             specs: tuple[str, ...], etas: tuple[float, ...], costs: tuple[int, ...]) -> dict:
-    """Runs the RL and Greedy policies for every (spec, eta, cost) combination, and the four
-    fixed-factor policies for every eta, on the common out-of-sample window (Section 4.1).
-    Returns a dict with the headline comparison table, the rotation-analysis inputs and the
-    raw policy results keyed by configuration, for later metric computation and plotting.
+             combos: tuple[tuple[str, int, float], ...], etas_for_fixed: tuple[float, ...]) -> dict:
+    """Runs the RL and Greedy policies for every (spec, cost, eta) combination in ``combos``,
+    and the four fixed-factor policies for every eta in ``etas_for_fixed``, on the common
+    out-of-sample window (Section 4.1). Returns a dict with the headline comparison table,
+    the rotation-analysis inputs and the raw policy results keyed by configuration, for later
+    metric computation and plotting.
     """
     valid_dates = common_valid_window(factor_returns, fred)
     ret_vals_full = factor_returns.loc[valid_dates, list(ACTIONS)].values
@@ -106,39 +107,40 @@ def run_grid(factor_returns: pd.DataFrame, fred: pd.DataFrame, refit_every_month
 
     policy_results: dict[str, object] = {}
     rows = []
-    for spec in specs:
-        state, binary_mask = assemble_state(factor_returns, ACTIONS, factor_returns["MKT_RF"], fred, spec)
-        state_vals = state.loc[valid_dates].values
-        for cost_bps in costs:
-            for eta in etas:
-                t0 = time.time()
-                rl = run_estimated_policy(state_vals, ret_vals_full, binary_mask, dates_ts, N_ACTIONS,
-                                           initial_window, cost_bps, eta, config.GAMMA,
-                                           refit_every_months=refit_every_months, rho_grid=rho_grid)
-                greedy = run_estimated_policy(state_vals, ret_vals_full, binary_mask, dates_ts, N_ACTIONS,
-                                               initial_window, cost_bps, eta, 0.0,
-                                               refit_every_months=refit_every_months, rho_grid=rho_grid)
-                elapsed = time.time() - t0
-                tstat, pval = reward_diff_tstat(rl.rewards, greedy.rewards)
-                for name, policy in (("RL", rl), ("Greedy", greedy)):
-                    rows.append({
-                        "spec": spec, "cost_bps": cost_bps, "eta": eta, "policy": name,
-                        "mean_reward_pct": mean_reward_pct(policy.rewards),
-                        "annualised_sharpe": annualised_sharpe(policy.net_returns),
-                        "switching_frequency": switching_frequency(policy.actions),
-                        "n_decisions": len(policy.actions),
-                        "rl_vs_greedy_tstat": tstat if name == "RL" else np.nan,
-                        "rl_vs_greedy_pvalue": pval if name == "RL" else np.nan,
-                    })
-                policy_results[f"{spec}|{cost_bps}|{eta}|RL"] = rl
-                policy_results[f"{spec}|{cost_bps}|{eta}|Greedy"] = greedy
-                logger.info("spec=%s cost=%dbps eta=%.0f: RL reward=%.4f%% Sharpe=%.3f switch=%.3f | "
-                            "Greedy reward=%.4f%% Sharpe=%.3f switch=%.3f (%.1fs)",
-                            spec, cost_bps, eta, mean_reward_pct(rl.rewards), annualised_sharpe(rl.net_returns),
-                            switching_frequency(rl.actions), mean_reward_pct(greedy.rewards),
-                            annualised_sharpe(greedy.net_returns), switching_frequency(greedy.actions), elapsed)
+    state_cache: dict[str, tuple] = {}
+    for spec, cost_bps, eta in combos:
+        if spec not in state_cache:
+            state, binary_mask = assemble_state(factor_returns, ACTIONS, factor_returns["MKT_RF"], fred, spec)
+            state_cache[spec] = (state.loc[valid_dates].values, binary_mask)
+        state_vals, binary_mask = state_cache[spec]
+        t0 = time.time()
+        rl = run_estimated_policy(state_vals, ret_vals_full, binary_mask, dates_ts, N_ACTIONS,
+                                   initial_window, cost_bps, eta, config.GAMMA,
+                                   refit_every_months=refit_every_months, rho_grid=rho_grid)
+        greedy = run_estimated_policy(state_vals, ret_vals_full, binary_mask, dates_ts, N_ACTIONS,
+                                       initial_window, cost_bps, eta, 0.0,
+                                       refit_every_months=refit_every_months, rho_grid=rho_grid)
+        elapsed = time.time() - t0
+        tstat, pval = reward_diff_tstat(rl.rewards, greedy.rewards)
+        for name, policy in (("RL", rl), ("Greedy", greedy)):
+            rows.append({
+                "spec": spec, "cost_bps": cost_bps, "eta": eta, "policy": name,
+                "mean_reward_pct": mean_reward_pct(policy.rewards),
+                "annualised_sharpe": annualised_sharpe(policy.net_returns),
+                "switching_frequency": switching_frequency(policy.actions),
+                "n_decisions": len(policy.actions),
+                "rl_vs_greedy_tstat": tstat if name == "RL" else np.nan,
+                "rl_vs_greedy_pvalue": pval if name == "RL" else np.nan,
+            })
+        policy_results[f"{spec}|{cost_bps}|{eta}|RL"] = rl
+        policy_results[f"{spec}|{cost_bps}|{eta}|Greedy"] = greedy
+        logger.info("spec=%s cost=%dbps eta=%.0f: RL reward=%.4f%% Sharpe=%.3f switch=%.3f | "
+                    "Greedy reward=%.4f%% Sharpe=%.3f switch=%.3f (%.1fs)",
+                    spec, cost_bps, eta, mean_reward_pct(rl.rewards), annualised_sharpe(rl.net_returns),
+                    switching_frequency(rl.actions), mean_reward_pct(greedy.rewards),
+                    annualised_sharpe(greedy.net_returns), switching_frequency(greedy.actions), elapsed)
 
-    for eta in etas:
+    for eta in etas_for_fixed:
         for idx, action in enumerate(ACTIONS):
             fixed = run_fixed_policy(ret_vals_full, dates_ts, idx, initial_window, eta)
             rows.append({
@@ -202,17 +204,79 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--full", action="store_true",
                          help="run the paper's monthly Q-function re-estimation (slow)")
+    parser.add_argument("--combo-index", type=int, default=None,
+                         help="internal: compute only this one combo (for running the independent "
+                              "(spec, cost, eta) combinations of EXP1_RUN_COMBOS as separate parallel "
+                              "processes); writes a partial result instead of the merged tables")
+    parser.add_argument("--partial-dir", type=str, default=None,
+                         help="internal: directory for partial per-combo outputs (used with --combo-index)")
+    parser.add_argument("--merge-partial-dir", type=str, default=None,
+                         help="internal: assemble the final tables from partial outputs already written "
+                              "to this directory by separate --combo-index runs, instead of recomputing")
     args = parser.parse_args()
 
-    refit_every_months = config.EXP1_REFIT_EVERY_MONTHS_PAPER if args.full else config.EXP1_REFIT_EVERY_MONTHS_RUN
-    logger.info("Experiment 1: re-estimation every %d month(s) (paper: every %d month)",
-                refit_every_months, config.EXP1_REFIT_EVERY_MONTHS_PAPER)
+    refit_every_months = config.EXP1_REFIT_EVERY_MONTHS_PAPER
+    if args.full:
+        combos = tuple((spec, cost, eta) for spec in config.EXP1_STATE_SPECS
+                        for cost in config.SWITCHING_COSTS_BPS for eta in config.RISK_AVERSION_LEVELS)
+    else:
+        combos = config.EXP1_RUN_COMBOS
+    etas_for_fixed = config.RISK_AVERSION_LEVELS
 
     factor_returns = build_factor_returns()
     fred = load_fred_series(config.EXP1_SAMPLE_START, config.EXP1_SAMPLE_END)
 
-    out = run_grid(factor_returns, fred, refit_every_months, config.EXP1_STATE_SPECS,
-                    config.RISK_AVERSION_LEVELS, config.SWITCHING_COSTS_BPS)
+    if args.combo_index is not None:
+        # One combination of EXP1_RUN_COMBOS, computed in its own OS process so that the
+        # independent (spec, cost, eta) points of the default grid can run concurrently on
+        # separate cores; see the parallel driver invoked by `reproduce.sh`/README for exp1.
+        one_combo = (combos[args.combo_index],)
+        out = run_grid(factor_returns, fred, refit_every_months, one_combo, etas_for_fixed=())
+        partial_dir = Path(args.partial_dir)
+        partial_dir.mkdir(parents=True, exist_ok=True)
+        out["results_table"].to_csv(partial_dir / f"rows_{args.combo_index}.csv", index=False)
+        import pickle
+        with open(partial_dir / f"policy_{args.combo_index}.pkl", "wb") as fh:
+            pickle.dump({"policy_results": out["policy_results"], "cycle_labels": out["cycle_labels"],
+                         "oos_start": out["oos_start"], "n_decisions": out["n_decisions"],
+                         "dates": out["dates"]}, fh)
+        logger.info("combo %d (%s) done, partial results in %s", args.combo_index, one_combo[0], partial_dir)
+        return
+
+    logger.info("Experiment 1: re-estimation every %d month(s); %d (spec, cost, eta) combinations "
+                "(paper's full grid: %d)", refit_every_months, len(combos),
+                len(config.EXP1_STATE_SPECS) * len(config.SWITCHING_COSTS_BPS) * len(config.RISK_AVERSION_LEVELS))
+
+    if args.merge_partial_dir is not None:
+        import pickle
+        partial_dir = Path(args.merge_partial_dir)
+        row_frames, policy_results = [], {}
+        cycle_labels = oos_start = n_decisions = dates = None
+        for idx in range(len(combos)):
+            row_frames.append(pd.read_csv(partial_dir / f"rows_{idx}.csv"))
+            with open(partial_dir / f"policy_{idx}.pkl", "rb") as fh:
+                partial = pickle.load(fh)
+            policy_results.update(partial["policy_results"])
+            cycle_labels, oos_start = partial["cycle_labels"], partial["oos_start"]
+            n_decisions, dates = partial["n_decisions"], partial["dates"]
+        valid_dates = common_valid_window(factor_returns, fred)
+        ret_vals_full = factor_returns.loc[valid_dates, list(ACTIONS)].values
+        for eta in etas_for_fixed:
+            for action_idx, action in enumerate(ACTIONS):
+                fixed = run_fixed_policy(ret_vals_full, dates, action_idx, config.EXP1_INITIAL_WINDOW_MONTHS, eta)
+                row_frames.append(pd.DataFrame([{
+                    "spec": "Fixed", "cost_bps": np.nan, "eta": eta, "policy": f"Fixed-{action}",
+                    "mean_reward_pct": mean_reward_pct(fixed.rewards),
+                    "annualised_sharpe": annualised_sharpe(fixed.net_returns),
+                    "switching_frequency": switching_frequency(fixed.actions),
+                    "n_decisions": len(fixed.actions), "rl_vs_greedy_tstat": np.nan, "rl_vs_greedy_pvalue": np.nan,
+                }]))
+                policy_results[f"Fixed|{action}|{eta}"] = fixed
+        out = {"results_table": pd.concat(row_frames, ignore_index=True), "policy_results": policy_results,
+               "cycle_labels": cycle_labels, "oos_start": oos_start, "n_decisions": n_decisions, "dates": dates,
+               "ret_vals": ret_vals_full}
+    else:
+        out = run_grid(factor_returns, fred, refit_every_months, combos, etas_for_fixed)
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     out["results_table"].to_csv(RESULTS_DIR / "exp1_performance_table.csv", index=False)

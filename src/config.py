@@ -78,12 +78,24 @@ EXP1_UNIVERSE_SIZE_RUN = 120  # number of long-history, liquid U.S. common stock
 # history, see data/data_loader.py and "Deviations from the paper" in results/RESULTS.md)
 
 EXP1_REFIT_EVERY_MONTHS_PAPER = 1  # the paper re-estimates the policy every out-of-sample month
+# every (state spec, switching cost, eta) combination actually computed by the default,
+# time-limited run, at the paper's own monthly re-estimation frequency: the headline
+# Trend+Cycle/120bps/eta=3 point (Section 4.1), its eta=0 counterpart to gauge risk
+# aversion, and the two other state specifications at the headline cost/eta to gauge the
+# information-estimation trade-off (Section 4.2). `--full` instead runs the complete
+# 3 specs x 3 costs x 2 etas = 18-combination grid of Section 4.1.
+EXP1_RUN_COMBOS = (
+    ("Trend+Cycle", 120, 3.0),
+    ("Trend+Cycle", 120, 0.0),
+    ("Trend", 120, 3.0),
+    ("Trend+Cycle+Macro", 120, 3.0),
+)
 # (Section 4.1: "recursive" expanding-window evaluation; 629 monthly decisions)
-EXP1_REFIT_EVERY_MONTHS_RUN = 6  # executed re-estimation frequency: the fitted Q-function (Algorithm S.1,
-# with its full N_A=10 action-sequence averaging and 31-point GCV grid) is re-estimated every six months
-# instead of every month to fit the available computation time; monthly decisions and rewards are still
-# produced every month using the most recently estimated policy (see "Deviations from the paper"). Run
-# with --full for the paper's monthly re-estimation.
+EXP1_REFIT_EVERY_MONTHS_RUN = 1  # executed re-estimation frequency: every out-of-sample month, matching
+# the paper (Section 4.1). An earlier draft re-estimated every six months to save computation time; this
+# changed the sign of the RL-versus-Greedy Sharpe-ratio ranking relative to the paper (Section 4, Table of
+# Sharpe ratios), so the reduction is not used; the time saved instead comes from the smaller combination
+# grid of EXP1_RUN_COMBOS above. Run with --full for the paper's complete combination grid.
 
 # ---------------------------------------------------------------------------
 # Experiment 2: Monte Carlo simulation study (Section S.6 of the Electronic Supplement)
