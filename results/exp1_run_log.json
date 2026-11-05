@@ -1,0 +1,11 @@
+{
+  "refit_every_months_executed": 6,
+  "refit_every_months_paper": 1,
+  "n_decisions_executed": 613,
+  "n_decisions_paper": 629,
+  "oos_start_executed": "1974-11-30",
+  "oos_start_paper": "1973-07-01",
+  "sample_start": "1964-10-31",
+  "sample_end": "2025-12-31",
+  "def_universe_size": 120
+}

@@ -1,0 +1,16 @@
+{
+  "n_replications_executed": 60,
+  "n_replications_paper": 500,
+  "train_sizes": [
+    240,
+    600,
+    1200
+  ],
+  "noise_counts": [
+    0,
+    2,
+    4,
+    8
+  ],
+  "oos_size": 500
+}
