@@ -308,8 +308,8 @@ reward against training sample size for RL, Greedy, Oracle and Fixed Strategy
   month into Bull, Bear, Correction or Rebound from the signs of the
   12-month average market excess return and the current one-month market
   excess return   (Goulding, Harvey and Mazzoleni 2023 style), but does not
-  give the exact sign-combination-to-label mapping in the retrieved
-  sections. This replication uses: Bull = both signs positive; Bear = both
+  give the exact sign-combination-to-label mapping in the text consulted
+  for this replication. This replication uses: Bull = both signs positive; Bear = both
   signs negative; Correction = 12-month average positive and current month
   negative; Rebound = 12-month average negative and current month positive
   (`src/state_variables.py`), with the Bull dummy omitted from the state

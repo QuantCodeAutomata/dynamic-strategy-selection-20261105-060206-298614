@@ -7,15 +7,14 @@ penalty selected by generalised cross-validation -- GCV, Golub, Heath and Wahba
 (1979) -- and the averaging across N_A simulated action sequences of equation
 (S.12). This module is shared, unchanged, by both experiments.
 
-Custom implementation: Context7 (scikit-learn: Ridge / RidgeCV) confirms that
-scikit-learn's ridge estimators apply one global penalty to every coefficient
-(including, implicitly, the intercept via centering) and expose no per-grid
-generalised-cross-validation score with a zero-penalty intercept constraint
-compatible with the paper's additive model; the estimator below implements
-the paper's ridge-GCV procedure directly (Section S.5.2) using a singular
-value decomposition so that the whole penalty grid is evaluated without a
-Python-level loop, which is required for the repeated monthly re-estimation
-of Section 4.1.
+Custom implementation: scikit-learn's ridge estimators (Ridge / RidgeCV) apply
+one global penalty to every coefficient, including, implicitly, the intercept
+via centering, and expose no per-grid generalised-cross-validation score with
+a zero-penalty intercept constraint compatible with the paper's additive
+model; the estimator below implements the paper's ridge-GCV procedure
+directly (Section S.5.2) using a singular value decomposition so that the
+whole penalty grid is evaluated without a Python-level loop, which is
+required for the repeated monthly re-estimation of Section 4.1.
 """
 from __future__ import annotations
 
